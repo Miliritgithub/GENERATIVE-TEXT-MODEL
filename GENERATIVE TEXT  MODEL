@@ -73,10 +73,18 @@ def generate(model, start_str, length=100):
         x = one_hot(x, vocab_size).unsqueeze(0)
 
         out = model(x)
-        pred = torch.argmax(out).item()
+
+        # ✅ Correct indentation
+        temperature = 0.8
+        out = out / temperature
+
+        probs = torch.softmax(out, dim=1).detach().numpy().flatten()
+        pred = np.random.choice(len(probs), p=probs)
 
         result += idx_to_char[pred]
         input_seq.append(pred)
+
+    return result
 
     return result
 
