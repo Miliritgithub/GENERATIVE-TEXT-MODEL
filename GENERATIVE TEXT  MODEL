@@ -1,0 +1,83 @@
+!pip install torch
+import torch
+import torch.nn as nn
+import numpy as np
+
+# Sample dataset (you can replace with your own text)
+text = """Artificial intelligence is transforming the world.
+AI helps in automation and decision making.
+Machine learning is a subset of AI."""
+
+# Preprocessing
+chars = list(set(text))
+char_to_idx = {ch:i for i,ch in enumerate(chars)}
+idx_to_char = {i:ch for ch,i in char_to_idx.items()}
+
+encoded = [char_to_idx[ch] for ch in text]
+
+# Create sequences
+seq_length = 20
+X, y = [], []
+
+for i in range(len(encoded)-seq_length):
+    X.append(encoded[i:i+seq_length])
+    y.append(encoded[i+seq_length])
+
+X = torch.tensor(X)
+y = torch.tensor(y)
+
+# Model
+class LSTMModel(nn.Module):
+    def __init__(self, vocab_size, hidden_size):
+        super().__init__()
+        self.lstm = nn.LSTM(vocab_size, hidden_size, batch_first=True)
+        self.fc = nn.Linear(hidden_size, vocab_size)
+
+    def forward(self, x):
+        out, _ = self.lstm(x)
+        out = self.fc(out[:, -1, :])
+        return out
+
+vocab_size = len(chars)
+model = LSTMModel(vocab_size, 128)
+
+# One-hot encoding
+def one_hot(x, vocab_size):
+    return torch.nn.functional.one_hot(x, vocab_size).float()
+
+# Training
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+loss_fn = nn.CrossEntropyLoss()
+
+for epoch in range(100):
+    inputs = one_hot(X, vocab_size)
+    outputs = model(inputs)
+    loss = loss_fn(outputs, y)
+
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+
+    if epoch % 20 == 0:
+        print(f"Epoch {epoch}, Loss: {loss.item()}")
+
+# Generate text
+def generate(model, start_str, length=100):
+    model.eval()
+    result = start_str
+
+    input_seq = [char_to_idx[ch] for ch in start_str]
+
+    for _ in range(length):
+        x = torch.tensor(input_seq[-seq_length:])
+        x = one_hot(x, vocab_size).unsqueeze(0)
+
+        out = model(x)
+        pred = torch.argmax(out).item()
+
+        result += idx_to_char[pred]
+        input_seq.append(pred)
+
+    return result
+
+print(generate(model, "Artificial", 200))
